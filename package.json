@@ -1,0 +1,18 @@
+{
+	"scripts": {
+		"dev": "nodemon server.js"
+	},
+	"dependencies": {
+		"@wagmi/connectors": "^5.7.7",
+		"@wagmi/core": "^2.16.4",
+		"better-sqlite3": "^11.8.1",
+		"dotenv": "^16.4.7",
+		"node-cron": "^3.0.3",
+		"node-fetch": "^3.3.2",
+		"telegraf": "^4.16.3",
+		"viem": "2.x"
+	},
+	"devDependencies": {
+		"nodemon": "^3.1.9"
+	}
+}
