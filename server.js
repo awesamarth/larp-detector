@@ -495,7 +495,7 @@ async (ctx) => {
     const user = db.prepare('SELECT * FROM users WHERE telegram_id = ?').get(ctx.from.id)
 
     // Send initial success message
-    await ctx.reply(`Registration successful! We will monitor your GitHub activity. Add this custom token's contract address to your wallet: ${CONTRACT_ADDRESS}`)
+    await ctx.reply(`Registration successful! We will monitor your GitHub activity. Add this custom token's contract address on Ethereum Holesky Testnet to your wallet: ${CONTRACT_ADDRESS}`)
 
     // Immediately check activity for new registrant
     const hasCommits = await checkGithubActivity(user.github_username)
