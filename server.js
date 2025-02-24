@@ -523,7 +523,7 @@ bot.use(stage.middleware())
 
 // Basic start command
 bot.command('start', (ctx) => {
-  ctx.reply('Welcome to LARP Detector! Use /register to set up your GitHub and wallet address.')
+  ctx.reply('Welcome to LARP Detector! I am a bot that will airdrop a shitcoin to you if you fail to commit to your GitHub at least once in 24 hours!.\n\n Use /register to set up your GitHub and wallet address.')
 })
 
 // Register command
