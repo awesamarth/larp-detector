@@ -7,7 +7,7 @@ const { privateKeyToAccount } = require('viem/accounts')
 const { holesky } = require("viem/chains")
 
 
-const CONTRACT_ADDRESS = "0x700663B92515B32F4CCE819BE40607ED691Bcb54"
+const CONTRACT_ADDRESS = "0x1Eef1882Cc704801D400e2CA3a1047e554f4272f"
 const ABI = [
   {
     "inputs": [
@@ -468,7 +468,7 @@ const registrationScene = new Scenes.WizardScene(
   'registration',
   // Step 1: Ask for GitHub username
   (ctx) => {
-    ctx.reply('Please enter your GitHub username:')
+    ctx.reply('Please enter your GitHub username (eg. awesamarth):')
     return ctx.wizard.next()
   },
   // Step 2: Save GitHub username and ask for wallet
@@ -478,25 +478,43 @@ const registrationScene = new Scenes.WizardScene(
     return ctx.wizard.next()
   },
   // Step 3: Validate and save wallet address
-  async (ctx) => {
-    const walletAddress = ctx.message.text
-    if (!isAddress(walletAddress)) {
-      ctx.reply('Invalid wallet address. Please /register again.')
-      return ctx.scene.leave()
-    }
-
-    try {
-      const stmt = db.prepare('INSERT OR REPLACE INTO users (telegram_id, github_username, wallet_address) VALUES (?, ?, ?)')
-      stmt.run(ctx.from.id, ctx.wizard.state.github, walletAddress)
-
-      ctx.reply(`Registration successful! We will monitor your GitHub activity. Add this custom token's contract address to your wallet: ${CONTRACT_ADDRESS} `)
-    } catch (error) {
-      ctx.reply('Error during registration. Please try again.')
-      console.error(error)
-    }
-
+// Step 3: Validate and save wallet address
+async (ctx) => {
+  const walletAddress = ctx.message.text
+  if (!isAddress(walletAddress)) {
+    ctx.reply('Invalid wallet address. Please /register again.')
     return ctx.scene.leave()
   }
+
+  try {
+    // First save the user to database
+    const stmt = db.prepare('INSERT OR REPLACE INTO users (telegram_id, github_username, wallet_address) VALUES (?, ?, ?)')
+    stmt.run(ctx.from.id, ctx.wizard.state.github, walletAddress)
+
+    // Then fetch the user data from database to confirm
+    const user = db.prepare('SELECT * FROM users WHERE telegram_id = ?').get(ctx.from.id)
+
+    // Send initial success message
+    await ctx.reply(`Registration successful! We will monitor your GitHub activity. Add this custom token's contract address to your wallet: ${CONTRACT_ADDRESS}`)
+
+    // Immediately check activity for new registrant
+    const hasCommits = await checkGithubActivity(user.github_username)
+    if (!hasCommits) {
+      try {
+        await mintTokens(user.wallet_address)
+        await ctx.reply(`🚨🚨FRESH LARP DETECTED!!!!! 🚨🚨\n\nYou haven't committed any code in the past 24 hours so I airdropped 10 LARP tokens to your wallet: ${user.wallet_address} lmao bozo\n\nLOCK TF IN!!`)
+      } catch (error) {
+        console.error(`Initial mint failed for ${user.wallet_address}:`, error)
+        await ctx.reply('⚠️ Failed to airdrop initial LARP tokens - check your wallet address!')
+      }
+    }
+  } catch (error) {
+    ctx.reply('Error during registration. Please try again.')
+    console.error(error)
+  }
+
+  return ctx.scene.leave()
+}
 )
 
 const stage = new Scenes.Stage([registrationScene])
@@ -533,7 +551,7 @@ async function checkGithubActivity(username) {
     // Check for any PushEvents in the last day
     const now = new Date()
     const oneDayAgo = new Date(now - 24 * 60 * 60 * 1000) // 24 hours
-    const fiveMinutesAgo = new Date(now - 5 * 60 * 1000)      // 5 minutes
+    // const fiveMinutesAgo = new Date(now - 5 * 60 * 1000)      // 5 minutes
 
 
     const recentPushEvents = events.filter(event => {
@@ -568,8 +586,7 @@ cron.schedule('0 0 * * *', async () => {
         // Send success notification to user
         await bot.telegram.sendMessage(
           user.telegram_id,
-          `🚨🚨 LARP DETECTED!!!!! 🚨🚨\n
-          You didn't commit any code in the past 24 hours so I airdropped 10 LARP tokens to your ${user.wallet_address} lmao bozo\n
+          `🚨🚨 LARP DETECTED!!!!! 🚨🚨\n\nYou didn't commit any code in the past 24 hours so I airdropped 10 LARP tokens to your wallet: ${user.wallet_address} lmao bozo\n\n
           LOCK TF IN!!`
         )
       } catch (error) {
@@ -584,26 +601,7 @@ cron.schedule('0 0 * * *', async () => {
   }
 })
 
-console.log("running initial github check")
-const users = db.prepare('SELECT * FROM users').all()
-console.log("users are here ", users)
-for (const user of users) {
-  console.log("user is here", user)
-  checkGithubActivity(user.github_username).then(async hasCommits => {
-    console.log("has commits? ", hasCommits)
-    if (!hasCommits) {
-      try {
-        await mintTokens(user.wallet_address)
-        await bot.telegram.sendMessage(
-          user.telegram_id,
-          `🚨🚨 LARP DETECTED!!!!! 🚨🚨\n\nYou haven't commited any code in the past 24 hours so I airdropped 10 LARP tokens to your wallet: ${user.wallet_address} lmao bozo\n\nLOCK TF IN!!`
-        )
-      } catch (error) {
-        console.error(`Initial mint failed for ${user.wallet_address}:`, error)
-      }
-    }
-  })
-}
+
 
 // Enable graceful stop
 process.once('SIGINT', () => bot.stop('SIGINT'))
